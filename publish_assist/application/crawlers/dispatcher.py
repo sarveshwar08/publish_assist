@@ -7,7 +7,6 @@ from .base import BaseCrawler
 
 from .youtube import YoutubeCrawler
 from .substack import SubStackCrawler
-from .custom_article import CustomArticleCrawler
 
 
 class CrawlerDispatcher:
@@ -26,8 +25,8 @@ class CrawlerDispatcher:
         return self
 
     def register_substack(self) -> "CrawlerDispatcher":
-        self.register("https://substack.com", SubStackCrawler)
-
+        # Match any username.substack.com
+        self._crawlers[r"https://([a-zA-Z0-9-]+\.)?substack\.com/.*"] = SubStackCrawler
         return self
 
     def register(self, domain: str, crawler: type[BaseCrawler]) -> None:
@@ -40,7 +39,5 @@ class CrawlerDispatcher:
         for pattern, crawler in self._crawlers.items():
             if re.match(pattern, url):
                 return crawler()
-        else:
-            logger.warning(f"No crawler found for {url}. Defaulting to CustomArticleCrawler.")
-
-            return CustomArticleCrawler()
+        
+        raise ValueError('No crawler found for URL: {}'.format(url))

@@ -35,6 +35,27 @@ class JobService:
         }
         self.jobs.update_one({"_id": job_id}, update)
 
+    def transition_to_feature_engineering(
+        self,
+        *,
+        job_id: str,
+        ingestion_run_id: str,
+        feature_run_id: str,
+        feature_run_url: Optional[str] = None,
+    ):
+        update = {
+            "$set": {
+                "zenml.run_id": feature_run_id,
+                "zenml.run_url": feature_run_url,
+                "zenml.step_run_ids.ingest": ingestion_run_id,
+                "zenml.step_run_ids.feature_engineering": feature_run_id,
+                "status": JobStatus.RUNNING,
+                "progress.stage": "feature_engineering",
+                "progress.message": "Extracting features now…",
+            }
+        }
+        self.jobs.update_one({"_id": job_id}, update)
+
     def mark_progress(
         self,
         *,
@@ -93,6 +114,9 @@ class JobService:
             }
         }
         self.jobs.update_one({"_id": job_id}, update)
+
+    def set_result(self, *, job_id: str, result: Dict[str, Any]):
+        self.jobs.update_one({"_id": job_id}, {"$set": {"result": result}})
 
     def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
         return self.jobs.find_one({"_id": job_id})

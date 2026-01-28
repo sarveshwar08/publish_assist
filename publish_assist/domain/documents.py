@@ -22,17 +22,18 @@ class UserDocument(NoSQLBaseDocument):
 class Document(NoSQLBaseDocument, ABC):
     content: dict
     platform: str
+    dataset_id: str # orchestrates one full etl/feature-engineering run and documents/chunks/vectors
     author_id: UUID4 = Field(alias="author_id")
     author_full_name: str = Field(alias="author_full_name")
 
-class SubstackDocument(Document):
+class ArticleDocument(Document):
     link: str
 
     class Settings:
         name = DataCategory.ARTICLES
 
 
-class YoutubeDocument(Document):
+class TranscriptDocument(Document):
     link: str
 
     class Settings:

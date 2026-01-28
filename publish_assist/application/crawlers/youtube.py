@@ -2,14 +2,15 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from loguru import logger
-from youtube_transcript_api import YouTubeTranscriptApi
 
 from .base import BaseCrawler
-from publish_assist.domain.documents import YoutubeDocument, UserDocument
+from publish_assist.domain.documents import TranscriptDocument, UserDocument
+from ..networks.youtube import YouTubeTranscriptClient
+from publish_assist.infra.db.mongo import get_mongo
 
 
 class YoutubeCrawler(BaseCrawler):
-    model = YoutubeDocument
+    model = TranscriptDocument
     
     @staticmethod
     def extract_video_id(url: str) -> str:
@@ -24,11 +25,11 @@ class YoutubeCrawler(BaseCrawler):
         raise ValueError(f"Cannot extract video id from: {url}")
 
     @staticmethod
-    def fetch_transcript(video_id: str, languages=("en", "en-US")) -> str:
+    def fetch_transcript(video_id: str) -> str:
         try:
-            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=list(languages))
-            text = " ".join([t["text"] for t in transcript])
-            return text
+            client = YouTubeTranscriptClient(get_mongo()['youtube_transcripts'])
+            transcript = client.get_transcript_text(video_id)
+            return transcript
         except Exception as e:
             logger.error(f"Error fetching transcript for {video_id}: {e}")
             return ""
@@ -51,7 +52,7 @@ class YoutubeCrawler(BaseCrawler):
             logger.warning(f"Could not fetch metadata for {url}: {e}")
             return "Unknown Title", ""
 
-    def extract(self, link: str, user: UserDocument):
+    def extract(self, link: str, dataset_id: str, user: UserDocument):
         video_id = YoutubeCrawler.extract_video_id(link)
         raw_text = YoutubeCrawler.fetch_transcript(video_id)
         title, description = YoutubeCrawler.fetch_video_metadata(link)
@@ -63,12 +64,16 @@ class YoutubeCrawler(BaseCrawler):
         }
 
         instance = self.model(
+            dataset_id= dataset_id,
             content=content,
             link=link,
             platform="youtube",
             author_id=user.id,
             author_full_name=user.full_name,
         )
-        instance.save()
+        try:
+            instance.save()
+        except Exception as e:
+            logger.error(f"Failed to save transcript: {e}")
 
         logger.info(f"Finished scrapping youtube video: {link}")

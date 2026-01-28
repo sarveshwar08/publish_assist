@@ -7,8 +7,8 @@ class JobStatus(StrEnum):
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
     
-    
 class JobType(StrEnum):
     INGEST = "INGEST"
+    GENERATE = "GENERATE"
     EVAL = "EVAL"
     REINDEX = "REINDEX"

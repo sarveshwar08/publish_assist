@@ -1,8 +1,12 @@
+#bridge between zenml pipeline invocation and api
+
 from typing import Any, Dict, Optional, List
 import feedparser
 import subprocess
 
 from zenml.client import Client
+from pipelines.digital_data_etl import digital_data_etl
+from pipelines.feature_engineering import feature_engineering as feature_engineering_pipeline
 
 class IntegrationService:
 
@@ -45,50 +49,60 @@ class IntegrationService:
         if substack.get("enabled") and substack.get("username"):
             links.extend(self._substack_links(substack["username"], limit=limit))
 
-        medium = source_config.get("medium", {})
-        if medium.get("enabled") and medium.get("username"):
-            links.extend(self._medium_links(medium["username"], limit=limit))
-
         youtube = source_config.get("youtube", {})
         if youtube.get("enabled") and youtube.get("handle"):
             links.extend(self._youtube_links(youtube["handle"], limit=limit))
 
-        # dedupe preserve order
-        seen = set()
-        unique = []
-        for l in links:
-            if l not in seen:
-                seen.add(l)
-                unique.append(l)
-
-        return unique
+        #dedup
+        return list(dict.fromkeys(links))
 
     def start_ingestion_pipeline(
         self,
         source_config: Dict[str, Any],
         dataset_id: str,
-        limit_per_source: int = 20,
+        limit_per_source: int = 25,
+        user_full_name: str = None,
     ) -> Dict[str, str]:
         
         links = self.build_links(source_config, limit=limit_per_source)
         if not links:
             raise ValueError("No links found from the given sources")
 
-        from pipelines.digital_data_etl import digital_data_etl
-
         pipeline_run = digital_data_etl.with_options(
             run_name=f"ingest_{dataset_id}",
         )(
+            user_full_name=user_full_name,
             links=links,
             dataset_id=dataset_id,
-            source_config=source_config,
         )
 
         run_id = str(pipeline_run.id)
 
         run_url = None
         try:
-            # ZenML dashboard URLs are not always configured in local setups.
+            run_url = f"/zenml/runs/{run_id}"
+        except Exception:
+            pass
+
+        return {"run_id": run_id, "run_url": run_url, "links_found": len(links)}
+
+    def start_feature_engineering_pipeline(
+        self,
+        *,
+        dataset_id: str,
+        wait_for: str | list[str] | None = None,
+    ) -> Dict[str, str]:
+        pipeline_run = feature_engineering_pipeline.with_options(
+            run_name=f"feature_engg_{dataset_id}",
+        )(
+            dataset_id=dataset_id,
+            wait_for=wait_for,
+        )
+
+        run_id = str(pipeline_run.id)
+
+        run_url = None
+        try:
             run_url = f"/zenml/runs/{run_id}"
         except Exception:
             pass
@@ -96,14 +110,13 @@ class IntegrationService:
         return {"run_id": run_id, "run_url": run_url}
 
     def get_run_status(self, run_id: str) -> Dict[str, Any]:
-        run = self.client.get_pipeline_run(run_id)
+        run = self.client.get_pipeline_run(run_id) #PipelineRunResponse object
 
-        status = str(run.status)  # may be enum
+        status = str(run.status)
 
         step_statuses: Dict[str, str] = {}
         try:
-            # step runs may exist depending on ZenML version
-            step_runs = run.steps  # dict[name, step_run]
+            step_runs = run.steps  # {[name, step_run]}
             for step_name, step_run in step_runs.items():
                 step_statuses[step_name] = str(step_run.status)
         except Exception:
@@ -119,7 +132,7 @@ class IntegrationService:
         z = zenml_status.lower()
         if z in ("running", "initializing"):
             return "RUNNING"
-        if z in ("completed", "finished", "succeeded"):
+        if z in ("completed", "finished", "succeeded", "cached"):
             return "COMPLETED"
         if z in ("failed", "error"):
             return "FAILED"

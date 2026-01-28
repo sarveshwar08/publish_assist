@@ -2,7 +2,7 @@ from loguru import logger
 from typing_extensions import Annotated
 from zenml import get_step_context, step
 
-from publish_assist.application import utils
+from publish_assist.utils.general import split_user_full_name
 from publish_assist.domain.documents import UserDocument
 
 
@@ -10,7 +10,7 @@ from publish_assist.domain.documents import UserDocument
 def get_or_create_user(user_full_name: str) -> Annotated[UserDocument, "user"]:
     logger.info(f"Getting or creating user: {user_full_name}")
 
-    first_name, last_name = utils.split_user_full_name(user_full_name)
+    first_name, last_name = split_user_full_name(user_full_name)
 
     user = UserDocument.get_or_create(first_name=first_name, last_name=last_name)
 

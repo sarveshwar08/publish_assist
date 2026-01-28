@@ -7,7 +7,7 @@ from pydantic import UUID4, BaseModel, Field
 from pymongo import errors
 
 from publish_assist.domain.exceptions import ImproperlyConfigured
-from publish_assist.infrastructure.db.mongo import connection
+from publish_assist.infra.db.mongo import connection
 from publish_assist.settings import settings
 
 _database = connection.get_database(settings.DATABASE_NAME)

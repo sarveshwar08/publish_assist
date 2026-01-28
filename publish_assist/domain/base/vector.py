@@ -13,10 +13,9 @@ from qdrant_client.models import CollectionInfo, PointStruct, Record
 from publish_assist.application.networks.embeddings import EmbeddingModelSingleton
 from publish_assist.domain.exceptions import ImproperlyConfigured
 from publish_assist.domain.types import DataCategory
-from publish_assist.infrastructure.db.qdrant import connection
+from publish_assist.infra.db.qdrant import get_qdrant_client
 
 T = TypeVar("T", bound="VectorBaseDocument")
-
 
 class VectorBaseDocument(BaseModel, Generic[T], ABC):
     id: UUID4 = Field(default_factory=uuid.uuid4)
@@ -39,23 +38,31 @@ class VectorBaseDocument(BaseModel, Generic[T], ABC):
             "id": _id,
             **payload,
         }
-        if cls._has_class_attribute("embedding"): # only embedded chunks shall implement this property
+        if cls._has_class_attribute("embedding"):
             attributes["embedding"] = point.vector or None
 
-        return cls(**attributes) # returns instance of that particular class which will call that method
+        return cls(**attributes)
 
-    def to_point(self: T, **kwargs) -> PointStruct: # now this is object method (the instance on which it will be called has to be converted to quadrant point)
+    def to_point(self: T, **kwargs) -> PointStruct:
         exclude_unset = kwargs.pop("exclude_unset", False)
         by_alias = kwargs.pop("by_alias", True)
 
-        payload = self.model_dump(exclude_unset=exclude_unset, by_alias=by_alias, **kwargs)  # convert to simple python dict
+        payload = self.model_dump(exclude_unset=exclude_unset, by_alias=by_alias, **kwargs)
 
-        _id = str(payload.pop("id"))
-        vector = payload.pop("embedding", {})
-        if vector and isinstance(vector, np.ndarray):
-            vector = vector.tolist() # converts to py list, since quadrnt needs json
+        chunk_id = payload.pop("chunk_id", None)
+        if not chunk_id:
+            raise ValueError("EmbeddedChunk must have chunk_id to be indexed in Qdrant")
 
-        return PointStruct(id=_id, vector=vector, payload=payload)
+        embedding = payload.pop("embedding", None)
+        if not embedding:
+            raise ValueError("EmbeddedChunk must have embedding before indexing")
+
+        if isinstance(embedding, np.ndarray):
+            embedding = embedding.tolist() # converts to py list, since quadrnt needs json
+
+        payload.pop("id") #remove mongo id
+
+        return PointStruct(id=chunk_id, vector=embedding, payload=payload)
 
     def model_dump(self: T, **kwargs) -> dict:
         dict_ = super().model_dump(**kwargs)
@@ -98,7 +105,29 @@ class VectorBaseDocument(BaseModel, Generic[T], ABC):
 
     @classmethod
     def _bulk_insert(cls: Type[T], documents: list["VectorBaseDocument"]) -> None:
-        points = [doc.to_point() for doc in documents]
+        connection = get_qdrant_client()
+        points = []
+        skipped = []
+
+        for doc in documents:
+            try:
+                point = doc.to_point()
+                points.append(point)
+            except (ValueError, TypeError) as e:
+                skipped.append((doc, str(e)))
+
+        if not points:
+            logger.error(
+                f"No valid points to insert into '{cls.get_collection_name()}'. "
+                f"Skipped {len(skipped)} documents."
+            )
+            return
+
+        if skipped:
+            logger.warning(
+                f"Skipped {len(skipped)} invalid documents while inserting into "
+                f"'{cls.get_collection_name()}'."
+            )
 
         connection.upsert(collection_name=cls.get_collection_name(), points=points)
 
@@ -115,6 +144,7 @@ class VectorBaseDocument(BaseModel, Generic[T], ABC):
 
     @classmethod
     def _bulk_find(cls: Type[T], limit: int = 10, **kwargs) -> tuple[list[T], UUID | None]:
+        connection = get_qdrant_client()
         collection_name = cls.get_collection_name()
 
         offset = kwargs.pop("offset", None)
@@ -137,7 +167,7 @@ class VectorBaseDocument(BaseModel, Generic[T], ABC):
     @classmethod
     def search(cls: Type[T], query_vector: list, limit: int = 10, **kwargs) -> list[T]:
         try:
-            documents = cls._search(query_vector=query_vector, limit=limit, **kwargs)
+            documents = cls._search(query=query_vector, limit=limit, **kwargs)
         except exceptions.UnexpectedResponse:
             logger.error(f"Failed to search documents in '{cls.get_collection_name()}'.")
 
@@ -147,10 +177,11 @@ class VectorBaseDocument(BaseModel, Generic[T], ABC):
 
     @classmethod
     def _search(cls: Type[T], query_vector: list, limit: int = 10, **kwargs) -> list[T]:
+        connection = get_qdrant_client()
         collection_name = cls.get_collection_name()
-        records = connection.search(
+        records = connection.query_points(
             collection_name=collection_name,
-            query_vector=query_vector,
+            query=query_vector,
             limit=limit,
             with_payload=kwargs.pop("with_payload", True),
             with_vectors=kwargs.pop("with_vectors", False),
@@ -162,6 +193,7 @@ class VectorBaseDocument(BaseModel, Generic[T], ABC):
 
     @classmethod
     def get_or_create_collection(cls: Type[T]) -> CollectionInfo:
+        connection = get_qdrant_client()
         collection_name = cls.get_collection_name()
 
         try:
@@ -186,6 +218,7 @@ class VectorBaseDocument(BaseModel, Generic[T], ABC):
 
     @classmethod
     def _create_collection(cls, collection_name: str, use_vector_index: bool = True) -> bool:
+        connection = get_qdrant_client()
         if use_vector_index is True:
             vectors_config = VectorParams(size=EmbeddingModelSingleton().embedding_size, distance=Distance.COSINE) # cosine similarity will be used on this collection is search is called
         else:

@@ -1,46 +1,46 @@
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
 from loguru import logger
 from typing_extensions import Annotated
 from zenml import get_step_context, step
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from publish_assist.application import utils
-from publish_assist.domain.base.nosql import NoSQLBaseDocument
-from publish_assist.domain.documents import ArticleDocument, Document, PostDocument, RepositoryDocument, UserDocument
-
+from publish_assist.domain.documents import Document, TranscriptDocument, ArticleDocument, NoSQLBaseDocument, UserDocument
 
 @step
 def query_data_warehouse(
-    author_full_names: list[str],
+    dataset_id: str,
 ) -> Annotated[list, "raw_documents"]:
-    documents = []
-    authors = []
-    for author_full_name in author_full_names:
-        logger.info(f"Querying data warehouse for user: {author_full_name}")
+    logger.info(f"Querying data warehouse for dataset_id={dataset_id}")
+    
+    results = fetch_all_data(dataset_id)
+    user_documents = [doc for query_result in results.values() for doc in query_result]
 
-        first_name, last_name = utils.split_user_full_name(author_full_name)
-        logger.info(f"First name: {first_name}, Last name: {last_name}")
-        user = UserDocument.get_or_create(first_name=first_name, last_name=last_name)
-        authors.append(user)
+    user_full_name = "Unknown"
+    if user_documents:
+        # Assuming all documents in the dataset belong to the same user
+        user_full_name = getattr(user_documents[0], "author_full_name", "Unknown")
 
-        results = fetch_all_data(user)
-        user_documents = [doc for query_result in results.values() for doc in query_result]
-
-        documents.extend(user_documents)
+    for d in user_documents:
+        if getattr(d, "dataset_id", None) != dataset_id:
+            logger.warning(f"Found document with mismatched dataset_id: {d.id}")
 
     step_context = get_step_context()
-    step_context.add_output_metadata(output_name="raw_documents", metadata=_get_metadata(documents))
+    step_context.add_output_metadata(
+        output_name="raw_documents",
+        metadata={
+            "user_full_name": user_full_name,
+            "dataset_id": dataset_id,
+            **_get_metadata(user_documents)
+        },
+    )
 
-    return documents
+    return user_documents   
 
 
-def fetch_all_data(user: UserDocument) -> dict[str, list[NoSQLBaseDocument]]:
-    user_id = str(user.id)
+def fetch_all_data(dataset_id: str) -> dict[str, list[NoSQLBaseDocument]]:
     with ThreadPoolExecutor() as executor:
         future_to_query = {
-            executor.submit(__fetch_articles, user_id): "articles",
-            executor.submit(__fetch_posts, user_id): "posts",
-            executor.submit(__fetch_repositories, user_id): "repositories",
+            executor.submit(__fetch_articles, dataset_id): "articles",
+            executor.submit(_fetch_transcripts, dataset_id): "transcripts",
         }
 
         results = {}
@@ -56,16 +56,12 @@ def fetch_all_data(user: UserDocument) -> dict[str, list[NoSQLBaseDocument]]:
     return results
 
 
-def __fetch_articles(user_id) -> list[NoSQLBaseDocument]:
-    return ArticleDocument.bulk_find(author_id=user_id)
+def __fetch_articles(dataset_id) -> list[NoSQLBaseDocument]:
+    return ArticleDocument.bulk_find(dataset_id=dataset_id)
 
 
-def __fetch_posts(user_id) -> list[NoSQLBaseDocument]:
-    return PostDocument.bulk_find(author_id=user_id)
-
-
-def __fetch_repositories(user_id) -> list[NoSQLBaseDocument]:
-    return RepositoryDocument.bulk_find(author_id=user_id)
+def _fetch_transcripts(dataset_id) -> list[NoSQLBaseDocument]:
+    return TranscriptDocument.bulk_find(dataset_id=dataset_id)
 
 
 def _get_metadata(documents: list[Document]) -> dict:
@@ -76,14 +72,7 @@ def _get_metadata(documents: list[Document]) -> dict:
         collection = document.get_collection_name()
         if collection not in metadata:
             metadata[collection] = {}
-        if "authors" not in metadata[collection]:
-            metadata[collection]["authors"] = list()
 
         metadata[collection]["num_documents"] = metadata[collection].get("num_documents", 0) + 1
-        metadata[collection]["authors"].append(document.author_full_name)
-
-    for value in metadata.values():
-        if isinstance(value, dict) and "authors" in value:
-            value["authors"] = list(set(value["authors"])) #unique author names only
 
     return metadata

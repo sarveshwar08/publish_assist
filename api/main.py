@@ -1,17 +1,17 @@
 from fastapi import FastAPI
-# import settings here
-from db.mongo import get_mongo
 
 from api.routes.ingest import router as ingest_router
 from api.routes.jobs import router as jobs_router
+from api.routes.generate import router as generate_router
+from api.routes.health import router as health_router
+from api.routes.datasets import router as datasets_router
+from api.routes.debug_eval import router as debug_eval_router
 
-app = FastAPI(title="LLM Pipeline API")
-
-mongo_db = get_mongo(settings.MONGO_URL, settings.MONGO_DB)
+app = FastAPI(title="Publish Assist API")
 
 app.include_router(ingest_router)
 app.include_router(jobs_router)
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+app.include_router(generate_router)
+app.include_router(health_router)
+app.include_router(datasets_router)
+app.include_router(debug_eval_router)

@@ -1,9 +1,13 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class DatasetDoc(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    
     id: str = Field(alias="_id")
 
     user_id: str

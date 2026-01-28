@@ -8,6 +8,7 @@ from publish_assist.domain.cleaned_documents import CleanedDocument
 @step
 def clean_documents(
     documents: Annotated[list, "raw_documents"],
+    dataset_id
 ) -> Annotated[list, "cleaned_documents"]:
     cleaned_documents = []
     for document in documents:
@@ -26,14 +27,7 @@ def _get_metadata(cleaned_documents: list[CleanedDocument]) -> dict:
         category = document.get_category()
         if category not in metadata:
             metadata[category] = {}
-        if "authors" not in metadata[category]:
-            metadata[category]["authors"] = list()
 
         metadata[category]["num_documents"] = metadata[category].get("num_documents", 0) + 1
-        metadata[category]["authors"].append(document.author_full_name)
-
-    for value in metadata.values():
-        if isinstance(value, dict) and "authors" in value:
-            value["authors"] = list(set(value["authors"]))
 
     return metadata

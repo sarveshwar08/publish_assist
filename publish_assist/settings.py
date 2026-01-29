@@ -100,9 +100,9 @@ class Settings(BaseSettings):
 
             settings_secrets = Client().get_secret("settings")
             settings = Settings(**settings_secrets.secret_values)
-        except (RuntimeError, KeyError):
+        except Exception as e:
             logger.warning(
-                "Failed to load settings from the ZenML secret store. Defaulting to loading the settings from the '.env' file."
+                f"Failed to load settings from the ZenML secret store ({e!s}). Defaulting to loading the settings from the '.env' file."
             )
             settings = Settings()
 

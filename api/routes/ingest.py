@@ -16,12 +16,11 @@ def ingest(req: IngestRequest):
     # TODO: P2 -  replace user_id with auth extracted user
     user_id = hashlib.md5((req.user_full_name).encode('utf-8')).hexdigest()
 
-    if not (req.substack_username or req.medium_username or req.youtube_handle):
+    if not (req.substack_username or req.youtube_handle):
         raise HTTPException(status_code=400, detail="Provide at least one source username/handle")
 
     source_config = {
         "substack": {"username": req.substack_username, "enabled": bool(req.substack_username)},
-        "medium": {"username": req.medium_username, "enabled": bool(req.medium_username)},
         "youtube": {"handle": req.youtube_handle, "enabled": bool(req.youtube_handle)},
     }
 

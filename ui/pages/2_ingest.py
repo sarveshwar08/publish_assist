@@ -20,14 +20,12 @@ if datasets:
 st.subheader("Create new dataset")
 
 substack = st.text_input("Substack username (optional)")
-medium = st.text_input("Medium username (optional)")
 youtube = st.text_input("YouTube handle (optional)")
 
 if st.button("Start ingestion"):
     payload = {
         "user_full_name": user_name,
         "substack_username": substack or None,
-        "medium_username": medium or None,
         "youtube_handle": youtube or None,
     }
 

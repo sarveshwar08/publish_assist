@@ -12,6 +12,11 @@ else:
 
 job_id = get_state("job_id")
 
+if not job_id:
+    st.warning("No active job found. redirecting…")
+    time.sleep(0.5)
+    st.switch_page("pages/2_ingest.py")
+
 job = get_job(job_id)
 
 status = job.get("status", "queued")

@@ -16,6 +16,11 @@ numpy = "^1.26.4"
 poethepoet = "0.29.0"
 datasets = "^3.0.1"
 
+# API
+fastapi = "^0.110.0"
+uvicorn = { version = "^0.30.0", extras = ["standard"] }
+pydantic-settings = "^2.3.0"
+
 # Digital data ETL
 selenium = "^4.21.0"
 webdriver-manager = "^4.0.1"

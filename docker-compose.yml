@@ -1,6 +1,33 @@
 version: '3.8'
 
 services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: "publish_assist_api"
+    environment:
+      # Mongo
+      DATABASE_HOST: "mongodb://admin:password@mongo:27017"
+      DATABASE_NAME: "publish_assist"
+
+      # Qdrant (local)
+      USE_QDRANT_CLOUD: "false"
+      QDRANT_DATABASE_HOST: "qdrant"
+      QDRANT_DATABASE_PORT: "6333"
+
+      # Optional keys
+      GROQ_API_KEY: "${GROQ_API_KEY:-}"
+
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongo
+      - qdrant
+    networks:
+      - local
+    restart: always
+
   mongo:
     image: mongo:latest
     container_name: "publish_assist_mongo"

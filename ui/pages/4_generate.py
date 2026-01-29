@@ -5,6 +5,15 @@ from state import get_state, set_state
 st.header("✍️ Generate Content")
 
 dataset_id = get_state("dataset_id")
+user_name = get_state("user_name")
+
+if not user_name:
+    st.warning("Please identify the user first. Redirecting…")
+    st.switch_page("pages/1_user.py")
+
+if not dataset_id:
+    st.warning("No dataset selected yet. Redirecting…")
+    st.switch_page("pages/2_ingest.py")
 
 topic = st.text_input("Topic")
 platform = st.selectbox(
@@ -17,7 +26,7 @@ tone = st.selectbox(
 )
 use_web = st.checkbox("Use Web Search", value=False)
 
-if st.button("Generate", disabled=not topic):
+if st.button("Generate", disabled=not topic or not dataset_id):
     payload = {
         "dataset_id": dataset_id,
         "topic": topic,

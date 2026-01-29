@@ -8,7 +8,7 @@ class DatasetDoc(BaseModel):
         populate_by_name=True,
     )
     
-    id: str = Field(alias="_id")
+    id: str = Field(validation_alias="_id")
 
     user_id: str
     source_config: Dict[str, Any]
@@ -19,7 +19,9 @@ class DatasetDoc(BaseModel):
     stats: Dict[str, int] = Field(default_factory=dict)
 
     def to_mongo(self) -> dict:
-        return self.model_dump(by_alias=True)
+        doc = self.model_dump()
+        doc["_id"] = doc.pop("id")
+        return doc
 
     @classmethod
     def from_mongo(cls, doc: dict) -> "DatasetDoc":

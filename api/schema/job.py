@@ -39,7 +39,7 @@ class JobPolling(BaseModel):
 class JobDoc(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     
-    id: str = Field(alias="_id")
+    id: str = Field(validation_alias="_id")
 
     type: JobType
     status: JobStatus = JobStatus.QUEUED
@@ -61,4 +61,6 @@ class JobDoc(BaseModel):
         return cls.model_validate(doc)
     
     def to_mongo(self) -> dict:
-        return self.model_dump(by_alias=True)
+        doc = self.model_dump()
+        doc["_id"] = doc.pop("id")
+        return doc

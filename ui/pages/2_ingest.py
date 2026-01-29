@@ -7,6 +7,10 @@ st.header("📥 Dataset Setup")
 datasets = get_state("datasets", [])
 user_name = get_state("user_name")
 
+if not user_name:
+    st.warning("Please identify the user first. Redirecting…")
+    st.switch_page("pages/1_user.py")
+
 if datasets:
     st.subheader("Existing datasets found")
     latest = datasets[0]

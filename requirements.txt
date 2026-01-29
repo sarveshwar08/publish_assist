@@ -1,1 +1,2 @@
-python-3.12.10
+streamlit==1.53.1
+requests

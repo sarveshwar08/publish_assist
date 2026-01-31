@@ -1,7 +1,7 @@
 import requests
 import os
 
-API_BASE = os.getenv("API_BASE", "http://localhost:8000/v1")
+API_BASE = os.getenv("API_BASE", "http://localhost/v1")
 
 
 def get_datasets(user_id: str):

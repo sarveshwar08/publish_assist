@@ -12,7 +12,7 @@ if not user_name:
     st.switch_page("pages/1_user.py")
 
 if datasets:
-    st.subheader("Existing datasets found")
+    st.subheader("Existing dataset found")
     latest = datasets[0]
 
     if st.button("Use latest dataset"):

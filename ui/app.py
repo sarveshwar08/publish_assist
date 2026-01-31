@@ -15,6 +15,5 @@ st.markdown(
     - ingestion pipelines
     - job orchestration
     - RAG inference
-    - evaluation readiness
     """
 )

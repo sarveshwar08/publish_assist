@@ -8,7 +8,8 @@ st.header("👤 Identify User")
 name = st.text_input("Full name")
 
 if st.button("Continue", disabled=not name):
-    user_id = hashlib.md5(name.encode()).hexdigest()
+    normalized_name = " ".join(name.split()).lower()
+    user_id = hashlib.md5(normalized_name.encode()).hexdigest()
     set_state("user_id", user_id)
     set_state("user_name", name)
 

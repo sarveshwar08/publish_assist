@@ -14,7 +14,8 @@ router = APIRouter(prefix="/v1", tags=["ingest"])
 @router.post("/ingest")
 def ingest(req: IngestRequest):
     # TODO: P2 -  replace user_id with auth extracted user
-    user_id = hashlib.md5((req.user_full_name).encode('utf-8')).hexdigest()
+    normalized_name = " ".join(req.user_full_name.split()).lower()
+    user_id = hashlib.md5(normalized_name.encode("utf-8")).hexdigest()
 
     if not (req.substack_username or req.youtube_handle):
         raise HTTPException(status_code=400, detail="Provide at least one source username/handle")

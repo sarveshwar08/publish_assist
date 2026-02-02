@@ -15,7 +15,13 @@ if datasets:
     st.subheader("Existing dataset found")
     latest = datasets[0]
 
-    if st.button("Use latest dataset"):
+    latest_ready = bool(latest.get("ready", False))
+    if latest_ready:
+        st.caption("Latest dataset is ready to use")
+    else:
+        st.warning("Latest dataset exists but is not ready yet. Please run ingestion (or wait for the existing job to finish) before generating.")
+
+    if st.button("Use latest dataset", disabled=not latest_ready):
         set_state("dataset_id", latest["id"])
         st.switch_page("pages/4_generate.py")
 

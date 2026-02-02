@@ -1,4 +1,5 @@
 import streamlit as st
+import requests
 from api_client import generate_content
 from state import get_state, set_state
 
@@ -35,7 +36,18 @@ if st.button("Generate", disabled=not topic or not dataset_id):
         "use_web": use_web,
     }
 
-    resp = generate_content(payload)
+    try:
+        resp = generate_content(payload)
+    except requests.HTTPError as e:
+        r = getattr(e, "response", None)
+        status = getattr(r, "status_code", None)
+        st.error(f"Generate failed ({status})")
+        if r is not None:
+            try:
+                st.json(r.json())
+            except Exception:
+                st.write(r.text)
+        st.stop()
 
     debug = resp.get("debug", {}) or {}
     job_id = debug.get("job_id")

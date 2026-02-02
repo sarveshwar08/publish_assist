@@ -113,6 +113,16 @@
 
   ---
 
+  ## Phase 2 (in build)
+
+  - Complete remaining `TODO` tags and tighten edge-case handling.
+  - Proper authentication and user-level authorization (replace hash-of-name identity with a real user ID).
+  - Bypass often occurring YT copyright issues by using YouTube Data API + Captions API with OAuth for user's own channel/account that owns the videos (or otherwise has permissions)
+  - Add a debug endpoint/view in the UI so users can inspect retrieval quality (queries, retrieved chunks, scores, rerank output, since it would be their own data).
+  - Introduce SFT for more precise tone understanding of the user
+  - Better Evaluation with LLM as a judge
+  - Proper UI with state management (upgrade demo Streamlit flow to a production UI in react).
+
   ## Running locally
 
   ### Option A — Docker Compose (recommended)
@@ -145,9 +155,9 @@
 
   Settings are defined in [`publish_assist.settings.Settings`](publish_assist/settings.py) and loaded from `.env`.
 
-  Common env vars:
+  env vars:
   - `GROQ_API_KEY` (LLM calls) — used by [`publish_assist.infra.llm.LlamaClient`](publish_assist/infra/llm.py)
-  - `DATABASE_HOST`, `DATABASE_NAME` (Mongo)
+  - `DATABASE_HOST`, `DATABASE_NAME` (Assigned in the compose file automatically, but needed if running separately)
   - `QDRANT_URL` (cloud url if using that)
   - `TEXT_EMBEDDING_MODEL_ID` (default: `sentence-transformers`)
   - `RERANKING_CROSS_ENCODER_MODEL_ID`
